@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pandas
+google-generativeai
+beautifulsoup4
+weasyprint
+python-dotenv
+python-multipart
+matplotlib
+asyncio
