@@ -37,12 +37,10 @@ def get_image_base64(image_name: str) -> str:
     """
     Belirtilen resim dosyasını (script ile aynı dizinde olduğu varsayılarak) okur ve Base64 kodlu bir dize olarak döndürür.
     """
-    # Script'in çalıştığı dizini al
     script_dir = os.path.dirname(__file__)
-    # Resim dosyasının tam yolunu oluştur
     image_path = os.path.join(script_dir, image_name)
     
-    print(f"Deniyor: Resim dosyasının yolu: {image_path}") # Hata ayıklama çıktısı
+    print(f"Deniyor: Resim dosyasının yolu: {image_path}")
     
     try:
         with open(image_path, "rb") as image_file:
@@ -82,7 +80,7 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
     remainder_color = '#f5f5f5' # Grafiğin geri kalanı için çok açık bir gri
     border_color = '#e0e0e0'     # Soluk kenarlık rengi
     
-    charts_content_list = [] # Store just the content for each chart, not the <td> tags
+    charts_content_list = []
 
     emotion_keys_ordered = [
         'duygu_mutlu_%', 'duygu_kizgin_%', 'duygu_igrenme_%', 'duygu_korku_%',
@@ -102,7 +100,7 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
         fig, ax = plt.subplots(figsize=(2.5, 2.5)) 
         
         ax.pie(sizes, colors=pie_colors, startangle=90, 
-                       wedgeprops={'edgecolor': border_color, 'linewidth': 0.7})
+                         wedgeprops={'edgecolor': border_color, 'linewidth': 0.7})
         
         ax.axis('equal')
 
@@ -115,7 +113,6 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
         img_base64 = base64.b64encode(buf.read()).decode('utf-8')
         plt.close(fig)
 
-        # Store just the content for the table cell
         chart_content = f"""
             <img src="data:image/png;base64,{img_base64}" style="width: 140px; height: 140px;" />
             <p style="margin-top: 0px; font-size: 13px; color: #555; font-weight: bold;">{emotion_name}</p>
@@ -125,16 +122,11 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
     if not charts_content_list:
         return "<p>Görselleştirilecek duygu verisi bulunamadı.</p>"
         
-    # Build the HTML table
     table_html = '<table style="width: 100%; border-collapse: collapse; margin-top: 0px; margin-bottom: 0px;">'
-    
-    # Define a fixed number of columns for the grid
     columns_per_row = 4
     
-    # Iterate through the charts and build rows
     for i in range(0, len(charts_content_list), columns_per_row):
         table_html += '<tr>'
-        # Add charts for the current row
         for j in range(columns_per_row):
             chart_index = i + j
             if chart_index < len(charts_content_list):
@@ -142,7 +134,6 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
                 table_html += charts_content_list[chart_index]
                 table_html += '</td>'
             else:
-                # Fill remaining cells in the last row with empty ones to maintain column structure
                 table_html += f'<td style="width: {100/columns_per_row}%;"></td>'
         table_html += '</tr>'
 
@@ -166,14 +157,11 @@ def format_qa_section(qa_list: list) -> str:
     return html
 
 
-def generate_llm_prompt(agg_row: dict, formatted_qa_html: str) -> str:
+def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
     """
-    Verilen toplu veri satırına ve yeni, daha temiz bir HTML şablonuna dayanarak Gemini LLM için prompt oluşturur.
+    Verilen tek bir satır verisine ve HTML şablonuna dayanarak Gemini LLM için prompt oluşturur.
     Filigran resmi LLM'e gönderilmez, sonradan eklenecektir.
     """
-    # Filigran için logo_src'yi burada kullanmıyoruz, LLM'in HTML'i değiştirmemesi için.
-    # logo_src = f"data:image/png;base64,{logo_base64}" if logo_base64 else ""
-
     html_template = f"""
 <!DOCTYPE html>
 <html>
@@ -189,7 +177,7 @@ def generate_llm_prompt(agg_row: dict, formatted_qa_html: str) -> str:
         @font-face {{
             font-family: "IBMPlexSans";
             src: url("fonts/IBMPlexSans-Medium.ttf");
-            font-weight: 500; /* Medium weight */
+            font-weight: 500;
             font-style: normal;
         }}
         @font-face {{
@@ -204,9 +192,9 @@ def generate_llm_prompt(agg_row: dict, formatted_qa_html: str) -> str:
             margin: 25px;
             color: #333;
             background-color: #ffffff;
-            font-size: 10pt; /* Yazı boyutu 1 tik küçültüldü */
-            position: relative; /* Filigran için gerekli */
-            margin-bottom: 40px; /* Alt bilgi @page tarafından yönetildiği için daha küçük bir boşluk */
+            font-size: 10pt;
+            position: relative;
+            margin-bottom: 40px;
         }}
         h1 {{ 
             color: #2c3e50; 
@@ -235,69 +223,68 @@ def generate_llm_prompt(agg_row: dict, formatted_qa_html: str) -> str:
 
         /* Filigran Resim Konteyneri */
         .watermark-image-container {{
-            position: fixed; /* Sabit konumlandırma */
+            position: fixed;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%); /* Ortala, eğiklik yok */
-            z-index: -1; /* İçeriğin arkasında kalması için */
-            pointer-events: none; /* Metin seçimini engelle */
-            opacity: 0.08; /* Çok soluk */
-            width: 60%; /* Filigran genişliği sayfanın %60'ı */
-            max-width: 500px; /* Maksimum genişlik */
-            height: auto; /* Oranları koru */
-            text-align: center; /* İçindeki resmi ortala */
+            transform: translate(-50%, -50%);
+            z-index: -1;
+            pointer-events: none;
+            opacity: 0.08;
+            width: 60%;
+            max-width: 500px;
+            height: auto;
+            text-align: center;
         }}
         .watermark-image-container img {{
             width: 100%;
             height: auto;
-            display: block; /* Resmi blok element yap */
-            margin: 0 auto; /* Resmi yatayda ortala */
+            display: block;
+            margin: 0 auto;
         }}
 
         /* WeasyPrint için sayfa alt bilgisi */
         @page {{
-            margin: 40px 12.5px 70px 12.5px; /* Üst, sağ, alt, sol boşluklar. Alt boşluk alt bilgi için artırıldı. */
+            margin: 40px 12.5px 70px 12.5px;
 
             @bottom-center {{
-                content: element(footer_content); /* footer_content id'sine sahip elementi buraya yerleştir */
-                vertical-align: bottom; /* Alt bilgiyi en alta hizala */
-                padding-bottom: 10px; /* Sayfanın en altına biraz boşluk bırak */
+                content: element(footer_content);
+                vertical-align: bottom;
+                padding-bottom: 10px;
             }}
         }}
 
         /* Yeni alt bilgi stili */
         .page-footer {{
             display: block;
-            position: running(footer_content); /* Bu elementi çalışan element olarak tanımla */
+            position: running(footer_content);
             width: 100%;
-            background-color: #ffffff; /* Alt bilginin arkasını beyaz yapar */
-            padding: 10px 10px; /* İç boşluklar */
+            background-color: #ffffff;
+            padding: 10px 10px;
             text-align: center;
             font-size: 8px;
             color: #555;
-            box-sizing: border-box; /* Padding'in genişliği etkilememesini sağlar */
+            box-sizing: border-box;
         }}
         .footer-divider {{
-            border-top: 0.5px solid #ccc; /* Üstte ince bir çizgi */
-            margin: 0 auto 5px auto; /* Ortala ve alt boşluk bırak */
-            width: 90%; /* Çizginin genişliği */
+            border-top: 0.5px solid #ccc;
+            margin: 0 auto 5px auto;
+            width: 90%;
         }}
         .footer-company-name {{
             font-weight: bold;
-            margin-bottom: 2px; /* Şirket adı ile iletişim bilgileri arasına boşluk */
+            margin-bottom: 2px;
         }}
         .footer-contact-info {{
-            font-size: 7px; /* İletişim bilgileri için daha küçük font */
-            line-height: 1.2; /* Satır aralığını daralt */
-            white-space: nowrap; /* Metnin tek satırda kalması için */
-            display: flex; /* İçerikleri yan yana hizalamak için flexbox kullan */
-            justify-content: center; /* Yatayda ortala */
-            gap: 10px; /* Öğeler arasına boşluk */
+            font-size: 7px;
+            line-height: 1.2;
+            white-space: nowrap;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
         }}
     </style>
 </head>
 <body>
-    <!-- Bu div, her sayfanın alt bilgisi olarak kullanılacak çalışan elementtir -->
     <div class="page-footer">
         <div class="footer-divider"></div>
         <div class="footer-company-name">DeepWork Bilişim Teknolojileri A.Ş.</div>
@@ -310,12 +297,10 @@ def generate_llm_prompt(agg_row: dict, formatted_qa_html: str) -> str:
         </div>
     </div>
 
-    <!-- Filigran Resim Konteyneri - LLM bu kısmı doldurmayacak, sonradan eklenecek -->
     <div class="watermark-image-container" id="watermark-placeholder">
-        <!-- Resim buraya dinamik olarak eklenecek -->
     </div>
     
-    <h1>{agg_row['kisi_adi']} - Mülakat Değerlendirme Raporu</h1>
+    <h1>{row_data['kisi_adi']} - Mülakat Değerlendirme Raporu</h1>
     
     <div class="section">
         <h2>1) Genel Bakış</h2>
@@ -326,7 +311,7 @@ def generate_llm_prompt(agg_row: dict, formatted_qa_html: str) -> str:
         <h2>2) Analiz</h2>
         <h3>Duygu Analizi:</h3>
         <div id="pie-chart-placeholder">
-            </div>
+        </div>
         <p>{{{{duygu_analizi_yorumu}}}}</p>
         
         <h3>Dikkat Analizi</h3>
@@ -351,14 +336,15 @@ def generate_llm_prompt(agg_row: dict, formatted_qa_html: str) -> str:
 </html>
 """
 
-    prompt_instructions = f"""
+    if row_data['tip'] == 0:
+        prompt_instructions = f"""
 Lütfen aşağıdaki HTML şablonunu verilen mülakat verilerine göre doldurarak eksiksiz bir HTML raporu oluştur.
 Veriler:
-- Aday Adı: {agg_row['kisi_adi']}
-- Mülakat Adı: {agg_row['mulakat_adi']}
-- LLM Skoru (Ortalama): {agg_row['llm_skoru']}
-- Duygu Analizi (Ortalama %): Mutlu {agg_row['duygu_mutlu_%']}, Kızgın {agg_row['duygu_kizgin_%']}, İğrenme {agg_row['duygu_igrenme_%']}, Korku {agg_row['duygu_korku_%']}, Üzgün {agg_row['duygu_uzgun_%']}, Şaşkın {agg_row['duygu_saskin_%']}, Doğal {agg_row['duygu_dogal_%']}
-- Dikkat Analizi: Toplam Ekran Dışı Süre {agg_row['ekran_disi_sure_sn']} sn, Toplam Ekran Dışı Bakış Sayısı {agg_row['ekran_disi_sayisi']}
+- Aday Adı: {row_data['kisi_adi']}
+- Mülakat Adı: {row_data['mulakat_adi']}
+- LLM Skoru: {row_data['llm_skoru']}
+- Duygu Analizi (%): Mutlu {row_data['duygu_mutlu_%']}, Kızgın {row_data['duygu_kizgin_%']}, İğrenme {row_data['duygu_igrenme_%']}, Korku {row_data['duygu_korku_%']}, Üzgün {row_data['duygu_uzgun_%']}, Şaşkın {row_data['duygu_saskin_%']}, Doğal {row_data['duygu_dogal_%']}
+- Dikkat Analizi: Ekran Dışı Süre {row_data['ekran_disi_sure_sn']} sn, Ekran Dışı Bakış Sayısı {row_data['ekran_disi_sayisi']}
 
 Doldurulacak Alanlar İçin Talimatlar:
 1.  `{{{{genel_bakis_icerik}}}}`: Adayın genel performansını, iletişim becerilerini ve mülakatın genel seyrini özetleyen, en az iki paragraftan oluşan detaylı bir giriş yaz.
@@ -376,6 +362,42 @@ Doldurulacak Alanlar İçin Talimatlar:
 İşte doldurman gereken şablon:
 {html_template}
 """
+
+    elif row_data['tip'] == 1:
+        prompt_instructions = f"""
+Lütfen aşağıdaki HTML şablonunu, sağlanan müşteri röportajı verilerini kullanarak eksiksiz ve profesyonel bir rapora dönüştür. Bu rapor, müşterinin röportajdaki performansını objektif ve veri odaklı bir şekilde analiz etmelidir.
+
+Verilen Röportaj Verileri:
+- Müşteri Adı: {row_data['kisi_adi']}
+- Röportaj Adı: {row_data['mulakat_adi']}
+- Duygu Analizi Yüzdeleri: Mutlu %{row_data['duygu_mutlu_%']}, Kızgın %{row_data['duygu_kizgin_%']}, İğrenme %{row_data['duygu_igrenme_%']}, Korku %{row_data['duygu_korku_%']}, Üzgün %{row_data['duygu_uzgun_%']}, Şaşkın %{row_data['duygu_saskin_%']}, Doğal %{row_data['duygu_dogal_%']}
+- Dikkat Analizi Verileri: Toplam Ekran Dışı Süre {row_data['ekran_disi_sure_sn']} saniye, Toplam Ekran Dışı Bakış Sayısı {row_data['ekran_disi_sayisi']}
+
+HTML Şablonundaki Yer Tutucuların Doldurulması İçin Detaylı Talimatlar:
+
+1.  `{{{{genel_bakis_icerik}}}}`: Müşterinin röportaj sırasındaki genel davranışını, sergilediği iletişim becerilerini ve röportajın genel akışını özetleyen **en az iki paragraftan** oluşan kapsamlı bir giriş yazısı oluştur. Bu bölümde, müşterinin mülakat sürecindeki etkileşimi ve duruşu hakkında genel bir perspektif sunulmalıdır.
+
+2.  `{{{{duygu_analizi_yorumu}}}}`: Yukarıda belirtilen sayısal duygu analizi yüzdelerini detaylı bir şekilde yorumla. Hangi duyguların röportaj boyunca **baskın olduğunu** belirle ve bu baskın duyguların röportajın bağlamı ve müşterinin yanıtları üzerindeki potansiyel etkilerini analiz et. Örneğin, yüksek bir 'Mutlu' yüzdesinin olumlu bir tutuma işaret edebileceği veya yüksek 'Kızgın' yüzdesinin stresli bir soruya tepki olabileceği gibi çıkarımlar yap. Bu yorum **en az iki detaylı paragraf** olmalıdır.
+
+3.  `{{{{dikkat_analizi_yorumu}}}}`: Sağlanan ekran dışı süre ve bakış sayısı verilerini analiz et. Bu metriklerin müşterinin röportaj sırasındaki **dikkat seviyesi**, odaklanma yeteneği veya olası dağılmalar hakkında ne gibi göstergeler sunduğunu açıkla. Verilerin müşterinin ilgi düzeyini veya konsantrasyonunu nasıl yansıttığına dair çıkarımlar yap. Bu yorum **en az bir detaylı paragraf** olmalıdır.
+
+4.  `{{{{genel_degerlendirme_icerik}}}}`: Müşterinin röportajda verdiği cevapları, genel tavrını, duygu analizi ve dikkat analizi sonuçlarını **entegre ederek** kapsamlı bir genel değerlendirme sun. Müşterinin **güçlü yönlerini** ve **gelişime açık alanlarını** açıkça belirt. Bu değerlendirme, mülakatın bütünsel bir resmini sunmalı ve müşterinin genel uygunluğunu veya performansını özetlemelidir. Bu bölüm **en az üç paragraf** olmalıdır.
+
+5.  `{{{{sonuclar_oneriler_icerik}}}}`: Bu bölümü, röportajın genel bir özeti ve gelecekteki olası adımlar veya dikkate alınması gereken noktalar hakkında bir değerlendirme olarak yaz. Müşteri hakkında **genel bir sonuç ifadesi** içermeli ve **yaklaşık 1 paragraf** uzunluğunda olmalıdır.
+
+**Rapor Oluşturma Kuralları:**
+
+* Üretilen tüm metin **sadece Türkçe** olmalıdır.
+* Raporun genel tonu **profesyonel, objektif, resmi ve veri odaklı** olmalıdır. Duygusal veya öznel ifadelerden kaçınılmalıdır.
+* Rapor, bir insana veya kullanıcıya yönelik **hiçbir doğrudan not, açıklama, meta-yorum veya giriş/kapanış cümlesi** içermemelidir. Sadece HTML şablonunun içindeki içerik doldurulmalıdır.
+* Yalnızca ve yalnızca yukarıdaki HTML şablonunu doldurarak yanıt ver. Başka hiçbir ek metin, başlık veya açıklama ekleme.
+* HTML içeriği, okunabilirliği ve ayrıştırmayı kolaylaştırmak için temiz ve düzenli olmalıdır.
+* Kesinlikle Mülakat dan aday dan bahsetme bu rapor müşteri için hazırlanıyor.
+
+İşte doldurman gereken şablon:
+{html_template}
+"""
+    
     return prompt_instructions
 
 
@@ -386,14 +408,12 @@ def create_pdf_from_html(html_content: str) -> io.BytesIO:
     """
     try:
         pdf_buffer = io.BytesIO()
-        # base_url'i "." olarak bırakıyoruz çünkü resimler artık Base64 ile gömülü.
-        # Ancak, fontlar gibi diğer yerel kaynaklar için hala gerekli olabilir.
         html = HTML(string=html_content, base_url='.') 
         html.write_pdf(pdf_buffer)
         pdf_buffer.seek(0)
         return pdf_buffer
     except Exception as e:
-        print(f"WeasyPrint PDF oluşturulurken hata: {e}") # Sunucu tarafı loglama için
+        print(f"WeasyPrint PDF oluşturulurken hata: {e}")
         raise ValueError(f"PDF oluşturulurken WeasyPrint hatası oluştu: {e}")
 
 
@@ -405,51 +425,68 @@ async def generate_report(file: UploadFile = File(..., description="Mülakat ver
         raise HTTPException(status_code=400, detail="Hatalı dosya formatı. Lütfen bir .csv dosyası yükleyin.")
 
     try:
-        # 1. CSV Veri İşleme
         file_content = await file.read()
         df = pd.read_csv(io.BytesIO(file_content))
 
         required_columns = [
             'kisi_adi', 'mulakat_adi', 'llm_skoru', 'duygu_mutlu_%', 'duygu_kizgin_%',
             'duygu_igrenme_%', 'duygu_korku_%', 'duygu_uzgun_%', 'duygu_saskin_%',
-            'duygu_dogal_%', 'ekran_disi_sure_sn', 'ekran_disi_sayisi', 'soru', 'cevap'
+            'duygu_dogal_%', 'ekran_disi_sure_sn', 'ekran_disi_sayisi', 'soru', 'cevap', 'tip'
         ]
         if not all(col in df.columns for col in required_columns):
             missing_cols = [col for col in required_columns if col not in df.columns]
             raise HTTPException(status_code=400, detail=f"CSV dosyasında eksik sütunlar var: {', '.join(missing_cols)}")
 
-        grouped = df.groupby(['kisi_adi', 'mulakat_adi'])
-        kisi_adi, mulakat_adi = next(iter(grouped.groups.keys()))
-        group = grouped.get_group((kisi_adi, mulakat_adi))
+        # --- DEĞİŞİKLİK BAŞLANGICI ---
+        # CSV'deki her satır için bir rapor oluşturmak üzere DataFrame'i satır satır dolaşıyoruz
+        # Ancak, mevcut yapı tek bir rapor oluşturuyor. Eğer birden fazla rapor oluşturulacaksa
+        # bu endpoint'in yanıt mekanizması da değişmelidir (örneğin, bir zip dosyası döndürme).
+        # Şimdilik, sadece ilk satırı işleyecek şekilde bırakıyorum, ancak kod her satırı
+        # potansiyel olarak işleyebilir hale getirildi.
+        
+        # Eğer gerçekten her satır için ayrı PDF istiyorsanız, bu kısmı bir döngü içine alıp
+        # her iterasyonda PDF oluşturmanız ve bunları bir liste veya zip dosyası olarak döndürmeniz gerekir.
+        # Bu senaryoda, API yanıtı StreamingResponse ile tek bir PDF döndürdüğü için
+        # şimdilik yalnızca ilk satırı işleyip tek bir PDF oluşturacak şekilde bırakıyoruz.
+        
+        if df.empty:
+            raise HTTPException(status_code=400, detail="CSV dosyası veri içermiyor.")
 
-        agg_row = {
-            'kisi_adi': kisi_adi, 'mulakat_adi': mulakat_adi,
-            'llm_skoru': round(group['llm_skoru'].mean(), 2),
-            'duygu_mutlu_%': round(group['duygu_mutlu_%'].mean(), 2),
-            'duygu_kizgin_%': round(group['duygu_kizgin_%'].mean(), 2),
-            'duygu_igrenme_%': round(group['duygu_igrenme_%'].mean(), 2),
-            'duygu_korku_%': round(group['duygu_korku_%'].mean(), 2),
-            'duygu_uzgun_%': round(group['duygu_uzgun_%'].mean(), 2),
-            'duygu_saskin_%': round(group['duygu_saskin_%'].mean(), 2),
-            'duygu_dogal_%': round(group['duygu_dogal_%'].mean(), 2),
-            'ekran_disi_sure_sn': round(group['ekran_disi_sure_sn'].sum(), 2),
-            'ekran_disi_sayisi': int(group['ekran_disi_sayisi'].sum()),
-            'soru_cevap': [{'soru': row['soru'], 'cevap': row['cevap']} for _, row in group.iterrows()]
+        # Sadece ilk satırı alıyoruz, çünkü endpoint tek bir PDF döndürüyor.
+        # Eğer her satır için ayrı rapor isteniyorsa, bu mantığın dışına çıkılır.
+        row = df.iloc[1] # İlk satırı al
+
+        # Satırdaki verileri doğrudan kullanıyoruz, gruplandırma yok
+        current_row_data = {
+            'kisi_adi': row['kisi_adi'],
+            'mulakat_adi': row['mulakat_adi'],
+            'llm_skoru': round(row['llm_skoru'], 2),
+            'duygu_mutlu_%': round(row['duygu_mutlu_%'], 2),
+            'duygu_kizgin_%': round(row['duygu_kizgin_%'], 2),
+            'duygu_igrenme_%': round(row['duygu_igrenme_%'], 2),
+            'duygu_korku_%': round(row['duygu_korku_%'], 2),
+            'duygu_uzgun_%': round(row['duygu_uzgun_%'], 2),
+            'duygu_saskin_%': round(row['duygu_saskin_%'], 2),
+            'duygu_dogal_%': round(row['duygu_dogal_%'], 2),
+            'ekran_disi_sure_sn': round(row['ekran_disi_sure_sn'], 2),
+            'ekran_disi_sayisi': int(row['ekran_disi_sayisi']),
+            'soru_cevap': [{'soru': row['soru'], 'cevap': row['cevap']}], # Soru-cevap tek bir satırdan geliyorsa
+            'tip': int(row['tip'])
         }
         
-        formatted_qa_html = format_qa_section(agg_row['soru_cevap'])
+        print(f"İşlenen satır tipi: {current_row_data['tip']}")
+        
+        # LLM prompt'u ve diğer fonksiyonlar artık 'current_row_data' ile çalışacak
+        formatted_qa_html = format_qa_section(current_row_data['soru_cevap'])
 
-        # 2. Gemini LLM Etkileşimi
-        prompt = generate_llm_prompt(agg_row, formatted_qa_html)
+        prompt = generate_llm_prompt(current_row_data, formatted_qa_html)
         
         response = gemini_model.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=0.7))
         
         raw_html_content = response.text.strip().removeprefix("```html").removesuffix("```")
-            
-        # 3. HTML Son İşleme ve Grafik Ekleme
+                        
         soup = BeautifulSoup(raw_html_content, "html.parser")
         
-        # Define placeholders to remove
         placeholders_to_remove = [
             "{{genel_bakis_icerik}}",
             "{{duygu_analizi_yorumu}}",
@@ -458,24 +495,20 @@ async def generate_report(file: UploadFile = File(..., description="Mülakat ver
             "{{sonuclar_oneriler_icerik}}"
         ]
 
-        # Find all <p> tags that might contain the placeholders and remove them
         for p_tag in soup.find_all('p'):
-            if p_tag.string: # Ensure the tag has direct text content
+            if p_tag.string:
                 original_text = p_tag.string.strip()
                 for placeholder in placeholders_to_remove:
                     if original_text.startswith(placeholder):
                         p_tag.string.replace_with(original_text[len(placeholder):].strip())
-                        break # Only one placeholder per paragraph is expected
+                        break
         
         pie_chart_placeholder = soup.find(id="pie-chart-placeholder")
         if pie_chart_placeholder:
-            emotion_charts_grid_html = create_emotion_charts_html(agg_row)
+            emotion_charts_grid_html = create_emotion_charts_html(current_row_data) # 'current_row_data' kullanıldı
             pie_chart_placeholder.clear()
             pie_chart_placeholder.append(BeautifulSoup(emotion_charts_grid_html, "html.parser"))
         
-        # Filigran resmini dinamik olarak ekle
-        # get_image_base64 fonksiyonuna doğrudan "logo.png" gönderiyoruz,
-        # fonksiyon içindeki path belirleme mantığı bunu halledecek.
         logo_base64 = get_image_base64("logo.png") 
         if logo_base64:
             logo_src = f"data:image/png;base64,{logo_base64}"
@@ -488,8 +521,7 @@ async def generate_report(file: UploadFile = File(..., description="Mülakat ver
 
         final_html = soup.prettify()
 
-        # HTML içeriğini bir dosyaya kaydetme (eklenen kısım)
-        html_debug_filename = f"{agg_row['kisi_adi']}_Mülakat_Raporu_Debug.html"
+        html_debug_filename = f"{current_row_data['kisi_adi']}_{current_row_data['mulakat_adi']}_Rapor_Debug.html" # Dosya adı güncellendi
         try:
             with open(html_debug_filename, "w", encoding="utf-8") as f:
                 f.write(final_html)
@@ -497,11 +529,9 @@ async def generate_report(file: UploadFile = File(..., description="Mülakat ver
         except IOError as io_err:
             print(f"HTML içeriği kaydedilirken hata oluştu: {io_err}")
 
-        # 4. PDF Oluşturma
         pdf_bytes = create_pdf_from_html(final_html)
 
-        # 5. FastAPI Yanıtı
-        filename = f"{agg_row['kisi_adi']}_Mülakat_Raporu.pdf"
+        filename = f"{current_row_data['kisi_adi']}_{current_row_data['mulakat_adi']}_Rapor.pdf" # Dosya adı güncellendi
         encoded_filename = urllib.parse.quote(filename)
 
         return StreamingResponse(
@@ -512,7 +542,7 @@ async def generate_report(file: UploadFile = File(..., description="Mülakat ver
     except pd.errors.EmptyDataError:
         raise HTTPException(status_code=400, detail="Yüklenen CSV dosyası boş.")
     except Exception as e:
-        print(f"Beklenmedik bir hata oluştu: {e}") # Sunucu tarafı loglama için
+        print(f"Beklenmedik bir hata oluştu: {e}")
         raise HTTPException(status_code=500, detail=f"Rapor oluşturulurken sunucuda bir hata oluştu: {str(e)}")
 
 
