@@ -179,6 +179,143 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
     return svg_content
 
 
+def create_emotion_charts_html_2(emotion_data: dict) -> str:
+    """
+    Çubuk grafiği artık mutlak yüzdeler yerine
+    (aday değeri – ortalama) farkıyla çizer.
+    Negatif farklar için grafikte aşağı doğru barlar oluşur.
+    """
+    labels_map = {
+        "duygu_mutlu_%": "Mutlu",
+        "duygu_kizgin_%": "Kızgın",
+        "duygu_igrenme_%": "İğrenme",
+        "duygu_korku_%": "Korku",
+        "duygu_uzgun_%": "Üzgün",
+        "duygu_saskin_%": "Şaşkın",
+        "duygu_dogal_%": "Doğal",
+    }
+
+    colors = {
+        "Mutlu": "#d4eac8",
+        "Kızgın": "#e5b9b5",
+        "İğrenme": "#d3cdd7",
+        "Korku": "#a9b4c2",
+        "Üzgün": "#b7d0e2",
+        "Şaşkın": "#fdeac9",
+        "Doğal": "#d8d8d8",
+    }
+
+    # Orijinal sıralama
+    emotion_keys = [
+        "duygu_mutlu_%",
+        "duygu_kizgin_%",
+        "duygu_igrenme_%",
+        "duygu_korku_%",
+        "duygu_uzgun_%",
+        "duygu_saskin_%",
+        "duygu_dogal_%",
+    ]
+    avg_keys = [
+        "avg_duygu_mutlu_%",
+        "avg_duygu_kizgin_%",
+        "avg_duygu_igrenme_%",
+        "avg_duygu_korku_%",
+        "avg_duygu_uzgun_%",
+        "avg_duygu_saskin_%",
+        "avg_duygu_dogal_%",
+    ]
+
+    # Farkları hesapla
+    diffs = []
+    for key, avg_key in zip(emotion_keys, avg_keys):
+        name = labels_map[key]
+        val = emotion_data.get(key, 0)
+        avg = emotion_data.get(avg_key, 0)
+        diff = round(val - avg, 2)
+        diffs.append({"name": name, "value": diff})
+
+    if not diffs:
+        return "<p>Görselleştirilecek duygu verisi bulunamadı.</p>"
+
+    # Ölçek: en büyük mutlak fark
+    max_abs = max(abs(d["value"]) for d in diffs)
+    if max_abs < 5:
+        max_abs = 5
+
+    # Grafik ölçüleri (üst + alt için simetrik olacak şekilde)
+    base_height = 250
+    padding = 40
+    panel = (max_abs / 100) * base_height
+    svg_height = int(panel * 2 + padding * 2)
+    svg_width = 600
+    bar_spacing = 15
+    num_bars = len(diffs)
+    bar_width = (svg_width - 2 * padding - (num_bars - 1) * bar_spacing) / num_bars
+
+    # Sıfır hattı (baseline) orta noktada
+    baseline_y = padding + panel
+
+    svg_elems = []
+    # Y=0 hattı
+    svg_elems.append(
+        f'<line x1="{padding}" y1="{baseline_y}" x2="{svg_width-padding}" '
+        f'y2="{baseline_y}" stroke="#ccc" stroke-width="1"/>'
+    )
+
+    # Y ekseni etiketleri (negatiften pozitife)
+    for perc in [-max_abs, 0, max_abs]:
+        # yüzde etiketlerimizi -X%, -X/2%, 0%, +X/2%, +X% olarak koyabiliriz
+        # tam -100…100 arasında etiketlemek yerine göreceli ölçek
+        pos = baseline_y - (perc / max_abs) * panel
+        label = f"{perc:.0f}%"
+        svg_elems.append(
+            f'<text x="{padding-10}" y="{pos+4}" font-family="IBMPlexSans" '
+            f'font-size="10" text-anchor="end" fill="#555">{label}</text>'
+        )
+        svg_elems.append(
+            f'<line x1="{padding}" y1="{pos}" x2="{padding+5}" y2="{pos}" '
+            f'stroke="#ccc" stroke-width="0.5"/>'
+        )
+
+    # Barlar
+    for i, item in enumerate(diffs):
+        x = padding + i * (bar_width + bar_spacing)
+        val = item["value"]
+        height = abs(val) / max_abs * panel
+        if val >= 0:
+            y = baseline_y - height
+        else:
+            y = baseline_y
+        color = colors.get(item["name"], "#ccc")
+        svg_elems.append(
+            f'<rect x="{x}" y="{y}" width="{bar_width}" height="{height}" '
+            f'fill="{color}" rx="3" ry="3"/>'
+        )
+        # Değer etiketleri
+        txt_y = y - 5 if val >= 0 else y + height + 15
+        svg_elems.append(
+            f'<text x="{x+bar_width/2}" y="{txt_y}" font-family="IBMPlexSans" '
+            f'font-size="12" text-anchor="middle" fill="#333" font-weight="bold">'
+            f"{val:+.1f}%</text>"
+        )
+        # Duygu adı
+        svg_elems.append(
+            f'<text x="{x+bar_width/2}" y="{baseline_y + panel + 20}" '
+            f'font-family="IBMPlexSans" font-size="11" text-anchor="middle" fill="#555">'
+            f'{item["name"]}</text>'
+        )
+
+    svg = (
+        f'<div style="text-align:center;margin:20px auto;opacity:0.6;">'
+        f'<svg width="{svg_width}" height="{svg_height}" '
+        f'viewBox="0 0 {svg_width} {svg_height}" '
+        f'style="background-color:#fcfcfc;border:1px solid #eee;border-radius:8px;">'
+        + "".join(svg_elems)
+        + "</svg></div>"
+    )
+    return svg
+
+
 def format_qa_section(qa_list: list) -> str:
     """
     Soru-cevap listesini okunabilir bir HTML formatına dönüştürür.
@@ -391,7 +528,7 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
             <span>-</span>
             <span>İstanbul Medeniyet Üniversitesi Kuzey Kampüsü Medeniyet Teknopark Kuluçka Merkezi Üsküdar/İstanbul</span>
             <span>-</span>
-            <span>+90 216 206 03 10</span>
+            <span>+90 553 808 32 77</span>
         </div>
     </div>
     
@@ -443,9 +580,9 @@ Lütfen aşağıdaki HTML şablonunu verilen mülakat verilerine göre doldurara
 Veriler:
 - Aday Adı: {row_data['kisi_adi']}
 - Mülakat Adı: {row_data['mulakat_adi']}
-- LLM Skoru: {row_data['llm_skoru']}
+- LLM Skoru: {row_data['llm_skoru']}, Ortalama LLM Skoru: {row_data['avg_llm_skoru']}
 - Duygu Analizi (%): Mutlu {row_data['duygu_mutlu_%']}, Kızgın {row_data['duygu_kizgin_%']}, İğrenme {row_data['duygu_igrenme_%']}, Korku {row_data['duygu_korku_%']}, Üzgün {row_data['duygu_uzgun_%']}, Şaşkın {row_data['duygu_saskin_%']}, Doğal {row_data['duygu_dogal_%']}
-- Dikkat Analizi: Ekran Dışı Süre {row_data['ekran_disi_sure_sn']} sn, Ekran Dışı Bakış Sayısı {row_data['ekran_disi_sayisi']}
+- Dikkat Analizi: Ekran Dışı Süre {row_data['ekran_disi_sure_sn']} sn, Ekran Dışı Bakış Sayısı {row_data['ekran_disi_sayisi']}, Ortalama Ekran Dışı Süre {row_data['avg_ekran_disi_sure_sn']} sn, Ortalama Ekran Dışı Bakış Sayısı {row_data['avg_ekran_disi_sayisi']}
 
 Doldurulacak Alanlar İçin Talimatlar:
 1.  `{{{{genel_bakis_icerik}}}}`: Adayın genel performansını, iletişim becerilerini ve mülakatın genel seyrini özetleyen, en az iki paragraftan oluşan detaylı bir giriş yaz.
@@ -481,7 +618,7 @@ Veriler:
 - Müşteri Adı: {row_data['kisi_adi']}
 - Görüşme Adı: {row_data['mulakat_adi']}
 - Duygu Analizi (%): Mutlu {row_data['duygu_mutlu_%']}, Kızgın {row_data['duygu_kizgin_%']}, İğrenme {row_data['duygu_igrenme_%']}, Korku {row_data['duygu_korku_%']}, Üzgün {row_data['duygu_uzgun_%']}, Şaşkın {row_data['duygu_saskin_%']}, Doğal {row_data['duygu_dogal_%']}
-- Dikkat Analizi: Ekran Dışı Süre {row_data['ekran_disi_sure_sn']} sn, Ekran Dışı Bakış Sayısı {row_data['ekran_disi_sayisi']}
+- Dikkat Analizi: Ekran Dışı Süre {row_data['ekran_disi_sure_sn']} sn, Ekran Dışı Bakış Sayısı {row_data['ekran_disi_sayisi']}, Ortalama Ekran Dışı Süre {row_data['avg_ekran_disi_sure_sn']} sn, Ortalama Ekran Dışı Bakış Sayısı {row_data['avg_ekran_disi_sayisi']}
 
 Doldurulacak Alanlar İçin Talimatlar:
 1.  `{{{{genel_bakis_icerik}}}}`: Müşterinin genel performansını, iletişim becerilerini ve görüşmenin genel seyrini özetleyen, en az iki paragraftan oluşan detaylı bir giriş yaz.
@@ -570,16 +707,26 @@ async def generate_report(
             "mulakat_adi": row["mulakat_adi"],
             "llm_skoru": round(row["llm_skoru"], 2),
             "duygu_mutlu_%": round(row["duygu_mutlu_%"], 2),
+            "avg_duygu_mutlu_%": round(row["avg_duygu_mutlu_%"], 2),
             "duygu_kizgin_%": round(row["duygu_kizgin_%"], 2),
+            "avg_duygu_kizgin_%": round(row["avg_duygu_kizgin_%"], 2),
             "duygu_igrenme_%": round(row["duygu_igrenme_%"], 2),
+            "avg_duygu_igrenme_%": round(row["avg_duygu_igrenme_%"], 2),
             "duygu_korku_%": round(row["duygu_korku_%"], 2),
+            "avg_duygu_korku_%": round(row["avg_duygu_korku_%"], 2),
             "duygu_uzgun_%": round(row["duygu_uzgun_%"], 2),
+            "avg_duygu_uzgun_%": round(row["avg_duygu_uzgun_%"], 2),
             "duygu_saskin_%": round(row["duygu_saskin_%"], 2),
+            "avg_duygu_saskin_%": round(row["avg_duygu_saskin_%"], 2),
             "duygu_dogal_%": round(row["duygu_dogal_%"], 2),
+            "avg_duygu_dogal_%": round(row["avg_duygu_dogal_%"], 2),
             "ekran_disi_sure_sn": round(row["ekran_disi_sure_sn"], 2),
+            "avg_ekran_disi_sure_sn": round(row["avg_ekran_disi_sure_sn"], 2),
             "ekran_disi_sayisi": int(row["ekran_disi_sayisi"]),
+            "avg_ekran_disi_sayisi": int(row["avg_ekran_disi_sayisi"]),
             "soru_cevap": [{"soru": row["soru"], "cevap": row["cevap"]}],
             "tip": int(row["tip"]),
+            "avg_llm_skoru": round(row["avg_llm_skoru"], 2),
         }
 
         print(f"İşlenen satır tipi: {current_row_data['tip']}")
@@ -598,17 +745,19 @@ async def generate_report(
 
         soup = BeautifulSoup(raw_html_content, "html.parser")
 
-        # LLM'in doldurması beklenen yer tutucuları burada manuel olarak kaldırmıyoruz.
-        # Sadece tip 1 ise uygunluk bölümünü kaldıracağız.
-
-        # Duygu analizi grafiği yer tutucusunu güncelle
-        # Eski pie-chart-placeholder yerine bar-chart-placeholder kullanıyoruz
+        # Duygu analizi grafiği yer tutucusunu güncelle:
+        #   1) Mutlak değerler grafiği
+        #   2) Ortalama fark grafiği
         bar_chart_placeholder = soup.find(id="bar-chart-placeholder")
         if bar_chart_placeholder:
-            emotion_bar_chart_html = create_emotion_charts_html(current_row_data)
+            # 1) Mutlak duygu yüzdeleri
+            abs_chart_html = create_emotion_charts_html(current_row_data)
+            # 2) Aday–ortalama farkı
+            diff_chart_html = create_emotion_charts_html_2(current_row_data)
+
             bar_chart_placeholder.clear()
             bar_chart_placeholder.append(
-                BeautifulSoup(emotion_bar_chart_html, "html.parser")
+                BeautifulSoup(abs_chart_html + diff_chart_html, "html.parser")
             )
 
         logo_base64 = get_image_base64("logo.png")
