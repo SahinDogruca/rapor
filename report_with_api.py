@@ -342,12 +342,36 @@ def format_qa_section(qa_list: list) -> str:
     return html
 
 
+def get_suitability_color(score: float, avg_score: float) -> str:
+    """
+    Determines the color based on the suitability score relative to the average score.
+    Green: score >= avg_score + 5
+    Light Green: avg_score + 2.5 <= score < avg_score + 5
+    Yellow: avg_score - 2.5 <= score < avg_score + 2.5
+    Orange: avg_score - 5 <= score < avg_score - 2.5
+    Red: score < avg_score - 5
+    """
+    if score >= avg_score + 5:
+        return "#27ae60"  # Green
+    elif score >= avg_score + 2.5:
+        return "#8bc34a"  # Light Green
+    elif score >= avg_score - 2.5:
+        return "#ffc107"  # Yellow
+    elif score >= avg_score - 5:
+        return "#ff9800"  # Orange
+    else:
+        return "#f44336"  # Red
+
+
 def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
     """
     Generates the prompt for Gemini LLM based on the given aggregated data row
     and a new, cleaner HTML template.
     The watermark image is not sent to the LLM, it will be added later.
     """
+
+    # Determine the color for the suitability score based on avg_llm_skoru
+    suitability_color = get_suitability_color(row_data['llm_skoru'], row_data['avg_llm_skoru'])
 
     html_template = f"""
 <!DOCTYPE html>
@@ -387,7 +411,7 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
         h1 {{ 
             color: #2c3e50; 
             text-align: center; 
-            border-bottom: 2px solid #312682; 
+            border-bottom: 2px solid #2b3d4f; 
             padding-bottom: 10px; 
             font-size: 24px; 
             font-weight: bold;
@@ -493,7 +517,7 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
 
         /* TOP RIGHT INFO BOX - REINTRODUCED AND MODIFIED */
         .page-header-info {{
-            margin-top: 20px;
+            margin-top: 30px;
             margin-right: 20px;
             position: running(header_info);
             text-align: right; /* Align right */
@@ -502,6 +526,12 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
             line-height: 1.2;
             min-width: 150px;
             font-weight: bold; /* Make it bold */
+        }}
+        .suitability-score {{
+            color: {suitability_color}; /* Dynamic color based on score */
+        }}
+        .suitability-label {{
+            color: #2b3d4f; /* Fixed color for "Pozisyona Uygunluk:" */
         }}
     </style>
 </head>
@@ -513,7 +543,7 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
     
     <!-- Top right info box element - Now displays suitability score -->
     <div class="page-header-info" id="header_info">
-        Pozisyona Uygunluk: %{{{{llm_score}}}}
+        <span class="suitability-label">Pozisyona Uygunluk:</span> <span class="suitability-score">%{{{{llm_score}}}}</span>
     </div>
     
     <!-- Footer element -->
@@ -591,7 +621,7 @@ Doldurulacak Alanlar İçin Talimatlar:
     ```html
     <div class="section">
         <h2>6) Pozisyona Uygunluk Değerlendirmesi</h2>
-        <p style="font-size: 24px; font-weight: bold; color: #27ae60; text-align: left;">Pozisyona Uygunluk: %85</p>
+        <p style="font-size: 24px; font-weight: bold; color: {suitability_color}; text-align: left;">Pozisyona Uygunluk: %{{{{llm_score}}}}</p>
         <p>Adayın genel mülakat performansı, teknik bilgi ve iletişim becerileri, pozisyonun gerektirdiği yetkinliklerle yüksek düzeyde örtüşmektedir. Duygu analizi ve dikkat seviyesi de olumlu bir tablo çizmektedir.</p>
     </div>
     ```
@@ -686,6 +716,7 @@ async def generate_report(
             "soru",
             "cevap",
             "tip",
+            "avg_llm_skoru", # Added avg_llm_skoru to required columns
         ]
         if not all(col in df.columns for col in required_columns):
             missing_cols = [col for col in required_columns if col not in df.columns]
@@ -710,7 +741,7 @@ async def generate_report(
             "duygu_igrenme_%": round(row["duygu_igrenme_%"], 2),
             "avg_duygu_igrenme_%": round(row["avg_duygu_igrenme_%"], 2),
             "duygu_korku_%": round(row["duygu_korku_%"], 2),
-            "avg_duygu_korku_%": round(row["avg_duygu_korku_%"], 2),
+            "avg_duygu_korku_%": round(row["avg_duygu_korku_%"], 2), 
             "duygu_uzgun_%": round(row["duygu_uzgun_%"], 2),
             "avg_duygu_uzgun_%": round(row["avg_duygu_uzgun_%"], 2),
             "duygu_saskin_%": round(row["duygu_saskin_%"], 2),
@@ -779,7 +810,16 @@ async def generate_report(
         # Populate the top-right header with the suitability score
         header_info_div = soup.find(id="header_info")
         if header_info_div:
-            header_info_div.string = f"Pozisyona Uygunluk: %{current_row_data['llm_skoru']:.0f}"
+            llm_score = current_row_data['llm_skoru']
+            avg_llm_score = current_row_data['avg_llm_skoru']
+            color = get_suitability_color(llm_score, avg_llm_score)
+            
+            # Directly insert the score and color into the HTML string
+            header_info_div.clear()
+            header_info_div.append(BeautifulSoup(
+                f'<span class="suitability-label">Pozisyona Uygunluk:</span> <span style="color: {color};">%{llm_score:.0f}</span>',
+                "html.parser"
+            ))
 
 
         # If type is 1, completely remove the suitability section from HTML
@@ -787,6 +827,24 @@ async def generate_report(
             uygunluk_placeholder = soup.find(text="{{uygunluk_degerlendirmesi_bolumu}}")
             if uygunluk_placeholder:
                 uygunluk_placeholder.extract()  # Remove text associated with the placeholder
+        else:
+            # For type 0, update the suitability section with dynamic color
+            uygunluk_placeholder = soup.find(text="{{uygunluk_degerlendirmesi_bolumu}}")
+            if uygunluk_placeholder:
+                llm_score = current_row_data['llm_skoru']
+                avg_llm_score = current_row_data['avg_llm_skoru']
+                color = get_suitability_color(llm_score, avg_llm_score)
+                
+                # Replace the placeholder with the actual suitability section HTML
+                suitability_section_html = f"""
+                <div class="section">
+                    <h2>6) Pozisyona Uygunluk Değerlendirmesi</h2>
+                    <p style="font-size: 24px; font-weight: bold; color: {color}; text-align: left;">Pozisyona Uygunluk: %{llm_score:.0f}</p>
+                    <p>Adayın genel mülakat performansı, teknik bilgi ve iletişim becerileri, pozisyonun gerektirdiği yetkinliklerle yüksek düzeyde örtüşmektedir. Duygu analizi ve dikkat seviyesi de olumlu bir tablo çizmektedir.</p>
+                </div>
+                """
+                uygunluk_placeholder.replace_with(BeautifulSoup(suitability_section_html, "html.parser"))
+
 
         final_html = soup.prettify()
 
