@@ -126,6 +126,11 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
 
     svg_elements = []
 
+    # Başlık ekleme
+    svg_elements.append(
+        f'<text x="{svg_width / 2}" y="25" font-family="IBMPlexSans" font-size="12" text-anchor="middle" fill="#333" font-weight="400">Aday Duygu Analizi</text>'
+    )
+
     # X ekseni çizgisi
     svg_elements.append(
         f'<line x1="{padding}" y1="{svg_height - padding}" x2="{svg_width - padding}" y2="{svg_height - padding}" stroke="#ccc" stroke-width="1"/>'
@@ -177,6 +182,7 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
     </div>
     """
     return svg_content
+
 
 
 def create_emotion_charts_html_2(emotion_data: dict) -> str:
@@ -256,6 +262,12 @@ def create_emotion_charts_html_2(emotion_data: dict) -> str:
     baseline_y = padding + panel
 
     svg_elems = []
+
+    # Başlık ekleme
+    svg_elems.append(
+        f'<text x="{svg_width / 2}" y="25" font-family="IBMPlexSans" font-size="12" text-anchor="middle" fill="#333" font-weight="400">Aday Duygularının Ortalamadan Farkı</text>'
+    )
+
     # Y=0 hattı
     svg_elems.append(
         f'<line x1="{padding}" y1="{baseline_y}" x2="{svg_width-padding}" '
@@ -586,7 +598,7 @@ Veriler:
 
 Doldurulacak Alanlar İçin Talimatlar:
 1.  `{{{{genel_bakis_icerik}}}}`: Adayın genel performansını, iletişim becerilerini ve mülakatın genel seyrini özetleyen, en az iki paragraftan oluşan detaylı bir giriş yaz.
-2.  `{{{{duygu_analizi_yorumu}}}}`: Yukarıda verilen sayısal duygu analizi verilerini yorumla. Hangi duyguların baskın olduğunu ve bunun mülakat bağlamında ne anlama gelebileceğini analiz et. Bu yorum en az iki detaylı paragraf olmalıdır.
+2.  `{{{{duygu_analizi_yorumu}}}}`: Yukarıda verilen sayısal duygu analizi verilerini yorumla. Hangi duyguların baskın olduğunu ve bunun mülakat bağlamında ne anlama gelebileceğini analiz et. Bu yorum en az iki detaylı paragraf olmalıdır. Giriş cümlesi tam olarak şu olmalı: "Görüntü ve ses analiz edilerek adayın duygu analizi yapılmıştır."
 3.  `{{{{dikkat_analizi_yorumu}}}}`: Ekran dışı süre ve bakış sayısı verilerini yorumla. Bu verilerin adayın dikkat seviyesi veya odaklanması hakkında ne gibi ipuçları verdiğini açıkla. Bu yorum en az bir detaylı paragraf olmalıdır.
 4.  `{{{{genel_degerlendirme_icerik}}}}`: Adayın verdiği cevapları, genel tavrını ve analiz sonuçlarını birleştirerek kapsamlı bir değerlendirme yap. Adayın güçlü ve gelişime açık yönlerini belirt. Bu bölüm en az üç paragraf olmalıdır.
 5.  `{{{{sonuclar_oneriler_icerik}}}}`: Bu bölümü **sadece İnsan Kaynakları profesyonellerine yönelik** olarak yaz. Adayın pozisyona uygunluğu hakkında net bir sonuca var. İşe alım kararı için somut önerilerde bulun. Adaya yönelik bir dil kullanma. Bu bölüm en az iki paragraf olmalıdır.
@@ -622,7 +634,7 @@ Veriler:
 
 Doldurulacak Alanlar İçin Talimatlar:
 1.  `{{{{genel_bakis_icerik}}}}`: Müşterinin genel performansını, iletişim becerilerini ve görüşmenin genel seyrini özetleyen, en az iki paragraftan oluşan detaylı bir giriş yaz.
-2.  `{{{{duygu_analizi_yorumu}}}}`: Yukarıda verilen sayısal duygu analizi verilerini yorumla. Hangi duyguların baskın olduğunu ve bunun görüşme bağlamında ne anlama gelebileceğini analiz et. Bu yorum en az iki detaylı paragraf olmalıdır.
+2.  `{{{{duygu_analizi_yorumu}}}}`: Yukarıda verilen sayısal duygu analizi verilerini yorumla. Hangi duyguların baskın olduğunu ve bunun görüşme bağlamında ne anlama gelebileceğini analiz et. Bu yorum en az iki detaylı paragraf olmalıdır. Giriş cümlesi tam olarak şu olmalı: "Görüntü ve ses analiz edilerek kişinin duygu analizi yapılmıştır."
 3.  `{{{{dikkat_analizi_yorumu}}}}`: Ekran dışı süre ve bakış sayısı verilerini yorumla. Bu verilerin müşterinin dikkat seviyesi veya odaklanması hakkında ne gibi ipuçları verdiğini açıkla. Bu yorum en az bir detaylı paragraf olmalıdır.
 4.  `{{{{genel_degerlendirme_icerik}}}}`: Müşterinin verdiği cevapları, genel tavrını ve analiz sonuçlarını birleştirerek kapsamlı bir değerlendirme yap. Müşterinin güçlü ve gelişime açık yönlerini belirt. Bu bölüm en az üç paragraf olmalıdır.
 5.  `{{{{sonuclar_oneriler_icerik}}}}`: Bu bölümü müşteri hakkında genel bir değerlendirme olarak yaz. 1 paragraf kadar olmalı
