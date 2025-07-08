@@ -11,17 +11,17 @@ from weasyprint import HTML
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 
-# .env dosyasından ortam değişkenlerini yükle
+# Load environment variables from .env file
 load_dotenv()
 
-# --- FastAPI Uygulama Başlatma ---
+# --- FastAPI Application Initialization ---
 app = FastAPI(
     title="Mülakat Raporu Oluşturucu API",
     description="CSV verilerinden tutarlı ve görsel olarak zenginleştirilmiş PDF mülakat raporları oluşturur.",
-    version="1.4.0",  # Sürüm, PDF oluşturma kütüphanesi WeasyPrint olarak güncellendi
+    version="1.4.0",  # Version updated to WeasyPrint for PDF generation
 )
 
-# --- Gemini API Yapılandırması ---
+# --- Gemini API Configuration ---
 try:
     GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
     genai.configure(api_key=GEMINI_API_KEY)
@@ -33,39 +33,40 @@ except KeyError:
         "GEMINI_API_KEY ortam değişkeni bulunamadı. Lütfen .env dosyasında ayarlayın."
     )
 
-# --- Yardımcı Fonksiyonlar ---
+# --- Helper Functions ---
 
 
 def get_image_base64(image_name: str) -> str:
     """
-    Belirtilen resim dosyasını (script ile aynı dizinde olduğu varsayılarak) okur ve Base64 kodlu bir dize olarak döndürür.
+    Reads the specified image file (assuming it's in the same directory as the script)
+    and returns it as a Base64 encoded string.
     """
     script_dir = os.path.dirname(__file__)
     image_path = os.path.join(script_dir, image_name)
 
-    print(f"Deniyor: Resim dosyasının yolu: {image_path}")
+    print(f"Trying: Image file path: {image_path}")
 
     try:
         with open(image_path, "rb") as image_file:
             encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
         return encoded_string
     except FileNotFoundError:
-        print(f"Hata: Resim dosyası bulunamadı: {image_path}")
+        print(f"Error: Image file not found: {image_path}")
         return ""
     except Exception as e:
-        print(f"Resim okunurken hata oluştu: {e}")
+        print(f"Error reading image: {e}")
         return ""
 
 
 def create_emotion_charts_html(emotion_data: dict) -> str:
     """
-    Duygu verilerini modern ve şık bir SVG çubuk grafik olarak oluşturur.
+    Generates a modern and stylish SVG bar chart from emotion data.
 
     Args:
-        emotion_data: Duygu adlarını ve yüzde değerlerini içeren bir sözlük.
+        emotion_data: A dictionary containing emotion names and percentage values.
 
     Returns:
-        SVG çubuk grafik içeren bir HTML string'i veya veri yoksa bir mesaj.
+        An HTML string containing the SVG bar chart or a message if no data is available.
     """
     labels_map = {
         "duygu_mutlu_%": "Mutlu",
@@ -107,11 +108,11 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
     if not emotion_values:
         return "<p>Görselleştirilecek duygu verisi bulunamadı.</p>"
 
-    # Dinamik SVG yüksekliği hesaplama
-    base_height = 250  # %100 değerine karşılık gelen yükseklik
+    # Calculate dynamic SVG height
+    base_height = 250  # Height corresponding to 100% value
     max_value = max(e["value"] for e in emotion_values)
     if max_value < 5:
-        max_value = 5  # Çok küçük değerleri engellemek için minimum sınır
+        max_value = 5  # Minimum limit to prevent very small values
     svg_height = int((max_value / 100) * base_height) + 80  # + padding
 
     svg_width = 600
@@ -126,17 +127,17 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
 
     svg_elements = []
 
-    # Başlık ekleme
+    # Add title
     svg_elements.append(
         f'<text x="{svg_width / 2}" y="25" font-family="IBMPlexSans" font-size="12" text-anchor="middle" fill="#333" font-weight="400">Aday Duygu Analizi</text>'
     )
 
-    # X ekseni çizgisi
+    # X-axis line
     svg_elements.append(
         f'<line x1="{padding}" y1="{svg_height - padding}" x2="{svg_width - padding}" y2="{svg_height - padding}" stroke="#ccc" stroke-width="1"/>'
     )
 
-    # Y ekseni etiketleri (0%, 25%, 50%, 75%, 100%)
+    # Y-axis labels (0%, 25%, 50%, 75%, 100%)
     for i in range(5):
         percent = i * 25
         y_val = (
@@ -184,12 +185,10 @@ def create_emotion_charts_html(emotion_data: dict) -> str:
     return svg_content
 
 
-
 def create_emotion_charts_html_2(emotion_data: dict) -> str:
     """
-    Çubuk grafiği artık mutlak yüzdeler yerine
-    (aday değeri – ortalama) farkıyla çizer.
-    Negatif farklar için grafikte aşağı doğru barlar oluşur.
+    Draws the bar chart with (candidate value – average) difference instead of absolute percentages.
+    Bars go downwards for negative differences.
     """
     labels_map = {
         "duygu_mutlu_%": "Mutlu",
@@ -211,7 +210,7 @@ def create_emotion_charts_html_2(emotion_data: dict) -> str:
         "Doğal": "#d8d8d8",
     }
 
-    # Orijinal sıralama
+    # Original order
     emotion_keys = [
         "duygu_mutlu_%",
         "duygu_kizgin_%",
@@ -231,7 +230,7 @@ def create_emotion_charts_html_2(emotion_data: dict) -> str:
         "avg_duygu_dogal_%",
     ]
 
-    # Farkları hesapla
+    # Calculate differences
     diffs = []
     for key, avg_key in zip(emotion_keys, avg_keys):
         name = labels_map[key]
@@ -243,12 +242,12 @@ def create_emotion_charts_html_2(emotion_data: dict) -> str:
     if not diffs:
         return "<p>Görselleştirilecek duygu verisi bulunamadı.</p>"
 
-    # Ölçek: en büyük mutlak fark
+    # Scale: largest absolute difference
     max_abs = max(abs(d["value"]) for d in diffs)
     if max_abs < 5:
         max_abs = 5
 
-    # Grafik ölçüleri (üst + alt için simetrik olacak şekilde)
+    # Chart dimensions (symmetric for top + bottom)
     base_height = 250
     padding = 40
     panel = (max_abs / 100) * base_height
@@ -258,26 +257,26 @@ def create_emotion_charts_html_2(emotion_data: dict) -> str:
     num_bars = len(diffs)
     bar_width = (svg_width - 2 * padding - (num_bars - 1) * bar_spacing) / num_bars
 
-    # Sıfır hattı (baseline) orta noktada
+    # Zero line (baseline) at the midpoint
     baseline_y = padding + panel
 
     svg_elems = []
 
-    # Başlık ekleme
+    # Add title
     svg_elems.append(
         f'<text x="{svg_width / 2}" y="25" font-family="IBMPlexSans" font-size="12" text-anchor="middle" fill="#333" font-weight="400">Aday Duygularının Ortalamadan Farkı</text>'
     )
 
-    # Y=0 hattı
+    # Y=0 line
     svg_elems.append(
         f'<line x1="{padding}" y1="{baseline_y}" x2="{svg_width-padding}" '
         f'y2="{baseline_y}" stroke="#ccc" stroke-width="1"/>'
     )
 
-    # Y ekseni etiketleri (negatiften pozitife)
+    # Y-axis labels (from negative to positive)
     for perc in [-max_abs, 0, max_abs]:
-        # yüzde etiketlerimizi -X%, -X/2%, 0%, +X/2%, +X% olarak koyabiliriz
-        # tam -100…100 arasında etiketlemek yerine göreceli ölçek
+        # We can place our percentage labels as -X%, -X/2%, 0%, +X/2%, +X%
+        # relative scale instead of exact -100...100
         pos = baseline_y - (perc / max_abs) * panel
         label = f"{perc:.0f}%"
         svg_elems.append(
@@ -289,7 +288,7 @@ def create_emotion_charts_html_2(emotion_data: dict) -> str:
             f'stroke="#ccc" stroke-width="0.5"/>'
         )
 
-    # Barlar
+    # Bars
     for i, item in enumerate(diffs):
         x = padding + i * (bar_width + bar_spacing)
         val = item["value"]
@@ -303,14 +302,14 @@ def create_emotion_charts_html_2(emotion_data: dict) -> str:
             f'<rect x="{x}" y="{y}" width="{bar_width}" height="{height}" '
             f'fill="{color}" rx="3" ry="3"/>'
         )
-        # Değer etiketleri
+        # Value labels
         txt_y = y - 5 if val >= 0 else y + height + 15
         svg_elems.append(
             f'<text x="{x+bar_width/2}" y="{txt_y}" font-family="IBMPlexSans" '
             f'font-size="12" text-anchor="middle" fill="#333" font-weight="bold">'
             f"{val:+.1f}%</text>"
         )
-        # Duygu adı
+        # Emotion name
         svg_elems.append(
             f'<text x="{x+bar_width/2}" y="{baseline_y + panel + 20}" '
             f'font-family="IBMPlexSans" font-size="11" text-anchor="middle" fill="#555">'
@@ -330,7 +329,7 @@ def create_emotion_charts_html_2(emotion_data: dict) -> str:
 
 def format_qa_section(qa_list: list) -> str:
     """
-    Soru-cevap listesini okunabilir bir HTML formatına dönüştürür.
+    Converts a list of questions and answers into a readable HTML format.
     """
     html = ""
     for item in qa_list:
@@ -345,8 +344,9 @@ def format_qa_section(qa_list: list) -> str:
 
 def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
     """
-    Verilen toplu veri satırına ve yeni, daha temiz bir HTML şablonuna dayanarak Gemini LLM için prompt oluşturur.
-    Filigran resmi LLM'e gönderilmez, sonradan eklenecektir.
+    Generates the prompt for Gemini LLM based on the given aggregated data row
+    and a new, cleaner HTML template.
+    The watermark image is not sent to the LLM, it will be added later.
     """
 
     html_template = f"""
@@ -387,7 +387,7 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
         h1 {{ 
             color: #2c3e50; 
             text-align: center; 
-            border-bottom: 2px solid #3498db; 
+            border-bottom: 2px solid #312682; 
             padding-bottom: 10px; 
             font-size: 24px; 
             font-weight: bold;
@@ -409,7 +409,7 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
         .section {{ margin-bottom: 30px; }}
         #pie-chart-placeholder {{ width: 100%; height: auto; margin: 20px auto; text-align: center; }}
 
-        /* Filigran Resim Konteyneri */
+        /* Watermark Image Container */
         .watermark-image-container {{
             position: fixed;
             top: 50%;
@@ -430,7 +430,7 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
             margin: 0 auto;
         }}
 
-        /* WeasyPrint için sayfa düzeni - DÜZENLENEN KISIM */
+        /* Page layout for WeasyPrint - EDITED PART */
         @page {{
             margin: 70px 12.5px 70px 12.5px;
             @top-left {{
@@ -448,7 +448,7 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
             }}
         }}
 
-        /* Alt bilgi stili */
+        /* Footer style */
         .page-footer {{
             display: block;
             position: running(footer_content);
@@ -478,10 +478,10 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
             gap: 10px;
         }}
 
-        /* LOGO HEADER - DÜZENLENEN KISIM */
+        /* LOGO HEADER - EDITED PART */
         .page-header-logo {{
-            margin-top: 15px;
-            margin-left: 15px;
+            margin-top: 20px;
+            margin-left: 20px;
             position: running(header_logo);
             text-align: left;
         }}
@@ -491,47 +491,32 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
             display: inline-block;
         }}
 
-        /* SAĞ ÜST BİLGİ KUTUSU - YENİ KISIM */
+        /* TOP RIGHT INFO BOX - REINTRODUCED AND MODIFIED */
         .page-header-info {{
-            margin-top: 15px;
-            margin-right: 15px;
+            margin-top: 20px;
+            margin-right: 20px;
             position: running(header_info);
-            text-align: right;
-            font-size: 8px;
+            text-align: right; /* Align right */
+            font-size: 15px; /* Slightly larger font */
             color: #223;
-            line-height: 0.5;
+            line-height: 1.2;
             min-width: 150px;
-        }}
-        .page-header-info .info-item {{
-            margin-bottom: 2px;
-        }}
-        .page-header-info .info-link {{
-            text-decoration: none;
-            color: #223;
-            font-weight: bold;
-        }}
-        .page-header-info .icon {{
-            font-size: 13px;
-            margin-right: 4px;
-            vertical-align: middle;
+            font-weight: bold; /* Make it bold */
         }}
     </style>
 </head>
 <body>
-    <!-- Logo header elementi -->
+    <!-- Logo header element -->
     <div class="page-header-logo" id="header_logo">
         <img src="{{{{logo_src}}}}" alt="Logo" />
     </div>
     
-    <!-- Sağ üst bilgi kutusu elementi -->
+    <!-- Top right info box element - Now displays suitability score -->
     <div class="page-header-info" id="header_info">
-        <div class="info-item"><span class="icon">🌐</span><a href="https://www.hrai.com.tr" class="info-link">www.hrai.com.tr</a></div>
-        <div class="info-item"><span class="icon">📸</span>hrai.deepwork</div>
-        <div class="info-item"><span class="icon">💼</span>hrai</div>
-        <div class="info-item"><span class="icon">🕊️</span>hrai_deepwork</div>
+        Pozisyona Uygunluk: %{{{{llm_score}}}}
     </div>
     
-    <!-- Alt bilgi elementi -->
+    <!-- Footer element -->
     <div class="page-footer">
         <div class="footer-divider"></div>
         <div class="footer-company-name">DeepWork Bilişim Teknolojileri A.Ş.</div>
@@ -544,9 +529,9 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
         </div>
     </div>
     
-    <!-- Filigran Resim Konteyneri -->
+    <!-- Watermark Image Container -->
     <div class="watermark-image-container" id="watermark-placeholder">
-        <!-- Resim buraya dinamik olarak eklenecek -->
+        <!-- Image will be added here dynamically -->
     </div>
     
     <h1>{row_data['kisi_adi']} - Mülakat Değerlendirme Raporu</h1>
@@ -586,7 +571,7 @@ def generate_llm_prompt(row_data: dict, formatted_qa_html: str) -> str:
 """
 
     if row_data["tip"] == 0:
-        # DEĞİŞTİRİLEN KISIM: Aday Uygunluk Bölümü Eklendi
+        # MODIFIED PART: Candidate Suitability Section Added
         prompt_instructions = f"""
 Lütfen aşağıdaki HTML şablonunu verilen mülakat verilerine göre doldurarak eksiksiz bir HTML raporu oluştur.
 Veriler:
@@ -606,11 +591,11 @@ Doldurulacak Alanlar İçin Talimatlar:
     ```html
     <div class="section">
         <h2>6) Pozisyona Uygunluk Değerlendirmesi</h2>
-        <p style="font-size: 18px; font-weight: bold; color: #27ae60;">Pozisyona Uygunluk: %85</p>
+        <p style="font-size: 24px; font-weight: bold; color: #27ae60; text-align: left;">Pozisyona Uygunluk: %85</p>
         <p>Adayın genel mülakat performansı, teknik bilgi ve iletişim becerileri, pozisyonun gerektirdiği yetkinliklerle yüksek düzeyde örtüşmektedir. Duygu analizi ve dikkat seviyesi de olumlu bir tablo çizmektedir.</p>
     </div>
     ```
-    Yüzdeyi ve açıklamayı doldururken, verilen LLM Skoru'nu doğrudan uygunluk yüzdesi olarak kullanabilir veya bu skora dayanarak mantıklı bir uygunluk yüzdesi türetebilirsin. Açıklama 1-2 paragraf uzunluğunda olmalıdır.
+    Yüzdeyi ve açıklamayı doldururken, verilen LLM Skoru'nu doğrudan uygunluk yüzdesi olarak kullanabilir veya bu skora dayanarak mantıklı bir uygunluk yüzdesi türetebilirsin. Açıklama 1-2 paragraf uzunluğunda olmalıdır. Pozisyona uygunluk yüzdesi metni büyük ve kalın olmalıdır.
 
 Önemli Kurallar:
 - Üretilen tüm metin **sadece Türkçe** olmalıdır.
@@ -623,7 +608,7 @@ Doldurulacak Alanlar İçin Talimatlar:
 """
 
     elif row_data["tip"] == 1:
-        # Müşteri raporu için uygunluk bölümünü boş bırakın
+        # For customer report, leave the suitability section empty
         prompt_instructions = f"""
 Lütfen aşağıdaki HTML şablonunu verilen mülakat verilerine göre doldurarak eksiksiz bir HTML raporu oluştur.
 Veriler:
@@ -654,8 +639,8 @@ Doldurulacak Alanlar İçin Talimatlar:
 
 def create_pdf_from_html(html_content: str) -> io.BytesIO:
     """
-    Bir HTML dizesinden WeasyPrint kullanarak bir PDF dosyası oluşturur.
-    Fontlar gibi yerel dosyalara erişim için bir base_url kullanır.
+    Creates a PDF file from an HTML string using WeasyPrint.
+    Uses a base_url to access local files like fonts.
     """
     try:
         pdf_buffer = io.BytesIO()
@@ -664,11 +649,11 @@ def create_pdf_from_html(html_content: str) -> io.BytesIO:
         pdf_buffer.seek(0)
         return pdf_buffer
     except Exception as e:
-        print(f"WeasyPrint PDF oluşturulurken hata: {e}")
-        raise ValueError(f"PDF oluşturulurken WeasyPrint hatası oluştu: {e}")
+        print(f"Error creating WeasyPrint PDF: {e}")
+        raise ValueError(f"WeasyPrint error occurred while creating PDF: {e}")
 
 
-# --- FastAPI Endpoint'i ---
+# --- FastAPI Endpoint ---
 
 
 @app.post("/generate-report", summary="PDF Mülakat Raporu Oluştur")
@@ -757,14 +742,14 @@ async def generate_report(
 
         soup = BeautifulSoup(raw_html_content, "html.parser")
 
-        # Duygu analizi grafiği yer tutucusunu güncelle:
-        #   1) Mutlak değerler grafiği
-        #   2) Ortalama fark grafiği
+        # Update emotion analysis chart placeholder:
+        #   1) Absolute values chart
+        #   2) Average difference chart
         bar_chart_placeholder = soup.find(id="bar-chart-placeholder")
         if bar_chart_placeholder:
-            # 1) Mutlak duygu yüzdeleri
+            # 1) Absolute emotion percentages
             abs_chart_html = create_emotion_charts_html(current_row_data)
-            # 2) Aday–ortalama farkı
+            # 2) Candidate–average difference
             diff_chart_html = create_emotion_charts_html_2(current_row_data)
 
             bar_chart_placeholder.clear()
@@ -776,12 +761,12 @@ async def generate_report(
         if logo_base64:
             logo_src = f"data:image/png;base64,{logo_base64}" if logo_base64 else ""
 
-            # 1) Header logosunu ayarla
+            # 1) Set header logo
             header_img = soup.select_one("#header_logo img")
             if header_img and logo_src:
                 header_img["src"] = logo_src
 
-            # 2) Filigran logosunu ayarla
+            # 2) Set watermark logo
             watermark_placeholder = soup.find(id="watermark-placeholder")
             if watermark_placeholder:
                 img_tag = soup.new_tag(
@@ -789,13 +774,19 @@ async def generate_report(
                 )
                 watermark_placeholder.append(img_tag)
         else:
-            print("Uyarı: logo.png bulunamadı veya okunamadı. Filigran eklenemedi.")
+            print("Warning: logo.png not found or could not be read. Watermark not added.")
 
-        # YENİ EKLENEN: tip 1 ise uygunluk bölümünü HTML'den tamamen kaldır
+        # Populate the top-right header with the suitability score
+        header_info_div = soup.find(id="header_info")
+        if header_info_div:
+            header_info_div.string = f"Pozisyona Uygunluk: %{current_row_data['llm_skoru']:.0f}"
+
+
+        # If type is 1, completely remove the suitability section from HTML
         if current_row_data["tip"] == 1:
             uygunluk_placeholder = soup.find(text="{{uygunluk_degerlendirmesi_bolumu}}")
             if uygunluk_placeholder:
-                uygunluk_placeholder.extract()  # Placeholdere bağlı metni kaldır
+                uygunluk_placeholder.extract()  # Remove text associated with the placeholder
 
         final_html = soup.prettify()
 
